@@ -1,0 +1,29 @@
+# =============================================================================
+# NVIDIA RAG Blog Demo – Python Dependencies
+# =============================================================================
+# Install:  pip install -r requirements.txt
+# =============================================================================
+
+# ── NVIngest client (document ingestion) ─────────────────────────────────────
+nv-ingest-client
+
+# ── LlamaIndex core + NVIDIA connectors ─────────────────────────────────────
+llama-index-core
+llama-index-llms-nvidia
+llama-index-embeddings-nvidia
+llama-index-vector-stores-milvus
+
+# ── Milvus Python SDK ────────────────────────────────────────────────────────
+pymilvus>=2.4
+
+# ── Jupyter ──────────────────────────────────────────────────────────────────
+jupyterlab
+
+# ── PDF generation (for the synthetic financial report) ──────────────────────
+reportlab
+
+# ── Utilities ────────────────────────────────────────────────────────────────
+requests
+python-dotenv
+pandas
+tabulate
