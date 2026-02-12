@@ -1,0 +1,73 @@
+# Minimal NV-Ingest deployment using NVIDIA cloud endpoints for NIM models
+# This avoids needing to pull large NIM container images locally.
+services:
+  redis:
+    image: "redis/redis-stack:7.2.0-v18"
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nv-ingest-ms-runtime:
+    image: nvcr.io/nvidia/nemo-microservices/nv-ingest:26.1.2
+    shm_size: 40gb
+    ports:
+      - "7670:7670"
+      - "8265:8265"
+    cap_add:
+      - sys_nice
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - ARROW_DEFAULT_MEMORY_POOL=system
+      - OMP_NUM_THREADS=1
+      - CUDA_VISIBLE_DEVICES=-1
+      - MAX_INGEST_PROCESS_WORKERS=16
+      - INGEST_LOG_LEVEL=DEFAULT
+      - INGEST_RAY_LOG_LEVEL=PRODUCTION
+      - INGEST_DYNAMIC_MEMORY_THRESHOLD=0.80
+      - INGEST_DISABLE_DYNAMIC_SCALING=True
+      # Ray internals
+      - RAY_num_grpc_threads=1
+      - RAY_num_server_call_thread=1
+      - RAY_worker_num_grpc_internal_threads=1
+      # Redis message broker
+      - MESSAGE_CLIENT_HOST=redis
+      - MESSAGE_CLIENT_PORT=6379
+      - MESSAGE_CLIENT_TYPE=redis
+      - REDIS_INGEST_TASK_QUEUE=ingest_task_queue
+      # NVIDIA API keys for cloud endpoints
+      - NGC_API_KEY=${NGC_API_KEY}
+      - NVIDIA_API_KEY=${NGC_API_KEY}
+      - NVIDIA_BUILD_API_KEY=${NGC_API_KEY}
+      # === Use NVIDIA cloud-hosted endpoints (no local NIM containers needed) ===
+      # Page layout detection
+      - YOLOX_HTTP_ENDPOINT=https://ai.api.nvidia.com/v1/cv/nvidia/nemoretriever-page-elements-v2
+      - YOLOX_INFER_PROTOCOL=http
+      # Graphic elements detection
+      - YOLOX_GRAPHIC_ELEMENTS_HTTP_ENDPOINT=https://ai.api.nvidia.com/v1/cv/nvidia/nemoretriever-graphic-elements-v1
+      - YOLOX_GRAPHIC_ELEMENTS_INFER_PROTOCOL=http
+      # Table structure detection
+      - YOLOX_TABLE_STRUCTURE_HTTP_ENDPOINT=https://ai.api.nvidia.com/v1/cv/nvidia/nemoretriever-table-structure-v1
+      - YOLOX_TABLE_STRUCTURE_INFER_PROTOCOL=http
+      # OCR
+      - OCR_HTTP_ENDPOINT=https://ai.api.nvidia.com/v1/cv/nvidia/nemoretriever-ocr
+      - OCR_INFER_PROTOCOL=http
+      # VLM for chart captioning
+      - VLM_CAPTION_ENDPOINT=https://integrate.api.nvidia.com/v1/chat/completions
+      - VLM_CAPTION_MODEL_NAME=nvidia/nemotron-nano-12b-v2-vl
+      - YOLOX_PAGE_IMAGE_FORMAT=JPEG
+      - PDF_SPLIT_PAGE_COUNT=32
+      - MODEL_PREDOWNLOAD_PATH=/workspace/models/
+      # Disable readiness checks for cloud endpoints (they don't have local health endpoints)
+      - COMPONENTS_TO_READY_CHECK=
+    healthcheck:
+      test: curl --fail http://localhost:7670/v1/health/ready || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
